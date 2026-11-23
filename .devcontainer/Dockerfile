@@ -18,6 +18,16 @@ apt install -y --no-install-recommends \
   git-lfs \
   vim \
   curl \
+  jq \
+  less \
+  file \
+  patch \
+  ripgrep \
+  openssh-client \
+  unzip \
+  zip \
+  xz-utils \
+  python3 \
   locales
 rm -rf /var/lib/apt/lists/*
 locale-gen ja_JP.UTF-8

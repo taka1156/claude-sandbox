@@ -6,12 +6,22 @@
 
 Claude Code はファイルの読み書きやコマンドの実行を行います。コンテナの中で動かせばその影響がホストに及ばないので、安心して作業を任せられ、終わったら環境ごと捨てられます。
 
+## ユースケース
+
+- **ワンショットの実行・検証**: ちょっとしたスクリプトを生成させて、その場で実行して動作を確かめる。ホストの環境を汚さずに、試したら捨てられる。
+- **他リポジトリの作業場**: 別のリポジトリをコンテナ内にクローンし、Claude Code に修正させてから元のリポジトリへ push する。GitHub CLI（`gh`）で PR の作成までできる。
+
+> [!NOTE]
+> `git push` と `gh pr create` は、実行前に確認を求める設定にしています。push する前に、Claude Code の変更内容を必ず確認してください。
+
 ## 中身
 
 | 項目 | 内容 |
 | --- | --- |
 | ベースイメージ | `ubuntu:26.04`（LTS） |
 | Claude Code | 公式のインストールスクリプトで導入し、`/usr/local/bin/claude` にリンク |
+| GitHub CLI | Dev Container の `github-cli` feature で導入 |
+| ツール | `git`、`git-lfs`、`curl`、`jq`、`ripgrep`、`python3`、`openssh-client`、`zip`／`unzip`／`xz-utils`、`file`、`patch`、`less`、`vim` |
 | VS Code 拡張機能 | Claude Code、日本語言語パック、Code Spell Checker、Error Lens |
 | ロケール／タイムゾーン | `ja_JP.UTF-8`／`Asia/Tokyo` |
 
