@@ -6,12 +6,22 @@ A disposable Dev Container / GitHub Codespaces environment for running [Claude C
 
 Claude Code can read, write and run commands on your files. Running it inside a container keeps those changes away from your host, so you can let it work more freely and throw the environment away when you're done.
 
+## Use cases
+
+- **One-shot runs and quick checks**: Have Claude Code generate a small script, run it, and check the result on the spot. Your host environment stays clean, and you can throw the container away afterwards.
+- **Workbench for other repositories**: Clone another repository into the container, let Claude Code make changes, and push them back to the original repository. The GitHub CLI (`gh`) also lets you open a pull request from here.
+
+> [!NOTE]
+> `git push` and `gh pr create` ask for confirmation before they run. Always review Claude Code's changes before pushing.
+
 ## What's inside
 
 | Item | Details |
 | --- | --- |
 | Base image | `ubuntu:26.04` (LTS) |
 | Claude Code | Installed with the official install script and linked to `/usr/local/bin/claude` |
+| GitHub CLI | Added with the `github-cli` Dev Container feature |
+| Tools | `git`, `git-lfs`, `curl`, `jq`, `ripgrep`, `python3`, `openssh-client`, `zip` / `unzip` / `xz-utils`, `file`, `patch`, `less`, `vim` |
 | VS Code extensions | Claude Code, Japanese Language Pack, Code Spell Checker, Error Lens |
 | Locale / time zone | `ja_JP.UTF-8` / `Asia/Tokyo` |
 
