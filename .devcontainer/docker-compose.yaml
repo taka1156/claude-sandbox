@@ -2,5 +2,16 @@ services:
     app:
       build: .
       tty: true
+      cap_add:
+        - NET_ADMIN   # iptables (used only by init-firewall.sh via sudo)
+        - NET_RAW     # ipset
       volumes:
         - ../:/workspace
+        # Read-only overlays: guard config and git hooks cannot be changed from inside the container
+        - ../.claude:/workspace/.claude:ro
+        - ../.git/hooks:/workspace/.git/hooks:ro
+        # Persist Claude login across rebuilds
+        - claude-config:/home/ubuntu/.claude
+
+volumes:
+    claude-config:

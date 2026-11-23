@@ -4,16 +4,22 @@
   "service": "app",
   "workspaceFolder": "/workspace",
   "dockerComposeFile": "docker-compose.yaml",
+  "remoteUser": "ubuntu",
+  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh",
+  "waitFor": "postStartCommand",
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   "customizations": {
     "vscode": {
       "settings": {
-        "github.copilot.enable": { "*": false },
+        "github.copilot.enable": {
+          "*": false
+        },
         "chat.disableAIFeatures": true,
         "terminal.integrated.defaultProfile.linux": "bash",
-        "workbench.secondarySideBar.defaultVisibility": "visible"
+        "workbench.secondarySideBar.defaultVisibility": "visible",
+        "files.insertFinalNewline": true
       },
       "extensions": [
         "MS-CEINTL.vscode-language-pack-ja",
