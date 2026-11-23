@@ -1,90 +1,93 @@
 ---
 name: review-claude-config
-description: Review this repo's Claude Code safety setup (.claude/settings.json, .claude/hooks/guard.sh, .devcontainer/*) on the premise that Claude runs inside the dev container. Verifies it is secure without blocking routine work, runs the bundled policy test suite, classifies findings, and applies approved fixes. Use when asked to review, audit or verify the Claude config, permissions, guard hook or dev container security.
+description: Review this repo's Claude Code harness (.claude/settings.json and .claude/hooks/guard.sh) on the premise that Claude runs inside a dev container in auto mode. Verifies it stops dangerous operations without blocking routine work, runs the bundled policy test suite, classifies findings, and fixes approved ones. Use when asked to review, audit or verify the Claude config, permissions or guard hook.
 ---
 
-# Review Claude Code config (dev container premise)
+# Review the Claude Code harness
 
-Goal: judge whether the setup is **secure enough without stopping routine work**, and whether each gap is an **acceptable compromise**. Always use the criteria below; do not invent new review angles per run.
+Judge whether the harness is **secure enough without stopping routine work**, and whether each gap is an **acceptable compromise**. Use only the criteria below; do not invent new review angles per run.
 
 ## Premise
 
-- Claude runs **inside the dev container** defined in `.devcontainer/` (non-root `ubuntu`, egress allowlist firewall, `.claude/` and `.git/hooks/` mounted read-only).
-- The container is the primary boundary. `guard.sh` and permission rules are a second layer (best-effort regex).
-- Do NOT recommend Claude Code's bwrap `sandbox`; it conflicts with Docker's default seccomp and was rejected.
+- Claude runs **inside a dev container** in **auto mode**. Unmatched commands are left to the auto-mode classifier and count as "no prompt" in tests (real behavior may occasionally prompt).
+- Trust model: the operator works only on their own assets or official, trusted sources. Third-party code is run only in a container that may be thrown away.
 
-## Threat model (all four, nothing else)
+## Threat model (exactly these four)
 
 1. **Accidental destruction**: deletes, history rewrite, force push, discarding work.
-2. **Prompt injection**: instructions embedded in web pages, packages or issues leading to secret exfiltration or outbound data transfer.
-3. **Supply chain**: malicious packages / install scripts executed in the container.
-4. **Guard tampering**: Claude modifying or bypassing settings, hooks, firewall or git hooks.
+2. **Prompt injection**: instructions in web pages, packages or issues leading to secret exfiltration.
+3. **Supply chain**: packages / install scripts executed in the container.
+4. **Guard tampering**: Claude modifying or bypassing the settings, hook, git hooks or the container firewall.
 
-## Decision policy (expected behavior)
+## Out of scope (operator responsibility — never report)
+
+- Settings, `CLAUDE.md` or skills brought in by repositories the operator chose to work on.
+- Misuse of legitimate credentials (token scopes, branch protection are managed on GitHub).
+- The container itself: user (root is fine), firewall, mounts. If the operator removes them, that is their call.
+- Languages not defined in `lang.json` (their package managers are not recognized by the hook).
+
+## Layer responsibilities
+
+| Layer | Owns |
+|---|---|
+| `settings.json` | Static prefix rules: `deny` for irreversible ops, `ask` for confirmation |
+| `guard.sh` | Context-dependent decisions: lockfile checks, bypass detection (`/bin/rm`, `\rm`, script deletes, compound commands), reasons for ask, blocking firewall / privilege commands |
+| Container | Outer boundary (premise only, not reviewed) |
+| `CLAUDE.md` / `AGENTS.md` / skills | Working conventions. **Never count as a security control** |
+
+Duplication rule: irreversible operations (delete, force push, secret reads, guard tampering) are blocked in **both** settings and hook. Everything else lives in **one** layer only. Report violations either way.
+
+## Safety baseline (must always hold)
+
+1. Irreversible operations blocked (settings + hook).
+2. Secret reads blocked (`.env*` except `.env.example`, gh token, SSH keys, Claude credentials).
+3. Guard tampering blocked (settings, hooks, `.git/hooks`, exec-capable git config, `sudo` / `iptables` / `ipset` / `nft`).
+4. Hook fails closed on unparsable input.
+5. `disableBypassPermissionsMode: "disable"`.
+
+## Decision policy
 
 | Category | Expected |
 |---|---|
-| Local git: `status`, `diff`, `log`, `add`, `commit`, `switch` | allow (no prompt) |
-| `git checkout -b` (side effect of a broad `git checkout *` ask rule; `git switch -c` is the no-prompt path) | allow or ask |
-| `gh` read-only: `pr/issue/run/repo view`, `list`, `status`, `diff`, `checks` | allow |
-| `gh` writes: `pr create/merge/comment`, `issue create`, `gh api` non-DELETE | ask |
-| `gh` destructive / credentials: `repo delete`, `release delete`, `auth token`, `secret`, `api -X DELETE` | block |
-| `curl` / `wget` plain requests (firewall limits destinations, but allowlisted hosts can still receive exfiltrated data) | allow or ask |
-| Remote script execution: `curl … \| sh`, `bash <(curl …)` | block |
-| Packages, **any language** (not tied to one manager): install exactly what the project's lockfile pins, with the matching lockfile present (`pnpm install`, `npm ci`, `uv sync`, `bundle install`, `go mod download`…) | ask |
-| Packages: same install command but the matching lockfile is absent | block |
-| Packages: adding deps (`add`, `require`, `go get`, `npm install <pkg>`, `pip install <pkg>`) | block |
-| Packages: one-shot remote execution (`npx`, `dlx`, `npm exec`, `bunx`, `uvx`, `pipx run`, `go run pkg@ver`) | block |
-| Packages: global / system install (`-g`, `cargo/go/gem/pipx install`, `uv tool install`, `apt`, `brew`) | block |
-| Project scripts that use installed deps (`pnpm test`, `uv run`, `cargo build`, `bundle exec`) | allow |
-| `git push` (normal) | ask |
-| Recoverable-but-lossy git: `reset --hard`, `checkout -- .`, `restore`, `stash drop/clear` | ask |
-| Irreversible: `rm`, `find -delete`, script-language deletes, `git clean/rm`, `branch -D`, force/delete push, history rewrite | block |
-| Secrets: `.env*` (except `.env.example`), gh token, SSH keys, Claude credentials | block |
-| Guard tampering: edit `.claude/settings*.json`, `.claude/hooks/`, `.git/hooks/`, `.git/config` exec keys | block |
-| Ordinary dev commands that merely *look* risky (regex like `.{0,3}` or `.*`, the word `rm` in a message) | allow (false positive = over-blocking) |
+| Local git (`status`, `diff`, `log`, `add`, `commit`, `switch`) | allow |
+| `git checkout -b` | allow or ask |
+| `git push` (normal); lossy git (`reset --hard`, `checkout -- .`, `restore`, `stash drop/clear`) | ask |
+| `gh` read-only | per config `gh_read` (default allow) |
+| `gh` writes (`pr create/merge/comment`, `issue create`, `api`…) | ask |
+| `gh` destructive / credentials (`repo delete`, `* delete`, `auth token`, `secret`) | block |
+| `curl` / `wget` plain requests | per config `curl` (default ask) |
+| Remote script execution (`curl … \| sh`, `bash <(curl …)`) | block |
+| Packages: lockfile install with the matching lockfile, enabled language | ask |
+| Packages: lockfile missing, language not enabled, adding deps, one-shot (`npx`, `dlx`, `uvx`…), global / system install | block |
+| Project scripts (`pnpm test`, `uv run`, `cargo build`) | allow |
+| Look-alikes: regex such as `.{0,3}` / `.*` / `.[]` in quotes, words like `rm` inside commit messages | allow (false positive = OVER) |
 
-"allow or ask" means both outcomes pass (`OK/ASK` in the TSV); do not report either as a finding.
-`policy-cases.tsv` encodes this table. When the policy changes, update the table and the TSV together.
+"allow or ask" means both outcomes pass (`OK/ASK` in the cases); never report either as a finding.
 
 ## Steps
 
-1. **Read** `.claude/settings.json`, `.claude/hooks/guard.sh`, `.devcontainer/{Dockerfile,docker-compose.yaml,devcontainer.json,init-firewall.sh}`. Use the Read tool for `.claude/` files (the guard blocks Bash commands that reference them).
-2. **Run the policy tests**:
+1. **Read** `.claude/settings.json` and `.claude/hooks/guard.sh` with the Read tool (the hook blocks Bash commands that mention these paths).
+2. **Run the tests**:
    ```
-   bash .claude/skills/review-claude-config/scripts/run-tests.sh
+   bash .claude/skills/review-claude-config/scripts/run-tests.sh --quiet
    ```
-   Options: `--mode default|auto` (how unmatched Bash commands are treated; default `auto`), `--guard <path>` / `--settings <path>` to test a proposed version.
-   Output lines: `pass` / `OVER` (stops work more than policy) / `UNDER` (looser than policy).
-   Package cases run against `fixtures/<name>/` (empty lockfiles) as project dir and cwd; add a fixture when a case needs a different lockfile set.
-3. **Static checklist** (things tests cannot see):
-   - Container: runs as non-root; sudoers allows only `init-firewall.sh`; user not in `sudo` group; only `NET_ADMIN`/`NET_RAW` added; no host secrets or docker socket mounted.
-   - Firewall: resolves before flushing; DROP policy set first; IPv6 dropped; verification step fails the start; allowlist contains only needed domains.
-   - Read-only mounts cover `.claude` and `.git/hooks`.
-   - Settings: `disableBypassPermissionsMode: "disable"`; no broad `allow` that overrides the policy; no `attribution` lines reintroduced; hook matcher covers `Bash|Read|Edit|Write|NotebookEdit|Grep|Glob`.
-   - Hook: fails closed on parse error; jq-missing fallback blocks Bash; timeout reasonable.
-4. **Classify** every finding:
-   - **要修正**: UNDER for a threat in the model, or OVER that blocks a policy "allow" item in daily work.
-   - **妥協可**: a gap that is listed under accepted trade-offs, or needs an unlikely multi-step bypass and is covered by another layer. State which layer covers it.
-   - **問題なし**: matches policy.
-5. **Report** (in Japanese, per AGENTS.md): Conclusion → test summary (pass / OVER / UNDER counts) → findings table `| 分類 | 観点 | 内容 | 根拠 | 修正案 |` → next action. Every finding cites the test line or file:line.
-6. **Fix** only after the user approves specific findings:
-   - `.devcontainer/*`: edit directly.
-   - `.claude/*` (read-only in the container, guarded): write the proposed full file to the scratchpad, re-run tests with `--guard` / `--settings` pointing at it, then show the **full file content** for the user to copy-paste on the host.
-   - After applying, re-run the tests and report the new counts.
+   Cases are in `policy-cases.tsv` next to this file (generated). Output: `pass` / `OVER` (stops work more than policy) / `UNDER` (looser than policy) plus baseline checks.
+3. **Static review** of what tests cannot see: layer responsibilities and the duplication rule; rules in `settings.json` that contradict the hook (e.g. a `deny` overriding a hook `ask`); new tools or commands that fall outside every rule.
+4. **Classify** each finding:
+   - **要修正**: any UNDER or baseline failure; an OVER that blocks a policy "allow" item in daily work; a duplication-rule violation.
+   - **妥協可**: listed under accepted trade-offs below, or needs an unlikely multi-step bypass covered by the container. Name the covering layer.
+   - **問題なし**: matches policy (report the count only).
+5. **Report** in Japanese: Conclusion → test summary (baseline / pass / OVER / UNDER counts) → findings table `| 分類 | 観点 | 内容 | 根拠 | 修正案 |` (every finding cites a test line or file:line) → next action.
+6. **Fix** only findings the user approves:
+   - If the repository contains `harness/` (the generator): edit `harness/templates/`, `harness/tests/cases/`, `harness/config.json` or `harness/lang.json`, run `bash harness/scripts/generate.sh`, and have the user copy `harness/build/root/` to the root on the host (`.claude/` is protected).
+   - Otherwise the harness was installed from the `dist` branch: report the fix as a change for the upstream generator; local edits to `.claude/` are the operator's call.
 
 ## Accepted trade-offs (do not re-raise unless the setup changed)
 
-- gh token is readable by the same OS user; mitigated by hook/deny rules and GitHub-side fine-grained PAT + branch protection.
-- Regex guards are bypassable in principle; the container boundary covers residual risk.
-- IP-based firewall allowlist can drift with CDN IP changes; re-run `sudo /usr/local/bin/init-firewall.sh`.
-- `.claude/` read-only means "always allow" choices are not persisted.
-- `.env` inside the repo is protected only by hook/deny rules, not by mounts.
-- Allowlisted domains (e.g. GitHub) can still be used as an exfiltration channel; accepted for usability.
-- Lockfiles are looked up only in the hook's `cwd` and the project root; installs in a monorepo subdirectory (`cd app && pnpm install`) are blocked and must be run manually.
+- Regex guards are bypassable in principle; the container is the outer boundary.
+- Allowlisted domains can still receive exfiltrated data; `curl` asks by default.
+- Lockfiles are looked up only in the hook's `cwd` and the project root; installs in a monorepo subdirectory are blocked and must be run manually.
 - Build/test commands that fetch deps implicitly (`cargo build`, `uv run`) are allowed; lockfile pins and the firewall cover them.
-- Package policy lives in `guard.sh` only; do not re-add install rules to `settings.json` deny/ask (a deny there would override the lockfile "ask").
-
-## Out of scope
-
-Application code, CI, GitHub repository settings (mention only as recommendations).
+- `yarn --version` / `bundle --version`-style calls look like lockfile installs and may ask or block.
+- `gh api` asks even for read-only calls (prefix rules cannot tell GET from POST).
+- Bash commands that merely mention `.claude/settings.json` or `.claude/hooks` (including generated copies) are blocked; use the Read tool.
