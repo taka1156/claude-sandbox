@@ -4,10 +4,16 @@
   "service": "app",
   "workspaceFolder": "/workspace",
   "dockerComposeFile": "docker-compose.yaml",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
   "customizations": {
     "vscode": {
       "settings": {
-        "terminal.integrated.defaultProfile.linux": "bash"
+        "github.copilot.enable": { "*": false },
+        "chat.disableAIFeatures": true,
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "workbench.secondarySideBar.defaultVisibility": "visible"
       },
       "extensions": [
         "MS-CEINTL.vscode-language-pack-ja",
