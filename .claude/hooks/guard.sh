@@ -79,17 +79,61 @@ case "$tool" in
     m "GIT_(CONFIG_(COUNT|KEY_|VALUE_|PARAMETERS)|SSH_COMMAND|EXEC_PATH|ASKPASS)" && block "git env override"
     m "\.claude/(settings(\.local)?\.json|hooks)|\.git/(hooks|config)" && block "access to protected guard / git hook files"
 
-    # --- install (pnpm install is allowed, but requires confirmation via settings.json) ---
-    m "${S}pnpm[[:space:]]+(-g[[:space:]]+|--global[[:space:]]+)?(add|dlx|up|update|upgrade)([[:space:]]|$)" && block "pnpm add/dlx/up"
-    m "${S}(npm|yarn|bun)[[:space:]]+(install|i|add|ci|dlx)([[:space:]]|$)" && block "npm/yarn/bun install"
-    m "${S}(npx|pnpx|pnx|bunx|uvx)([[:space:]]|$)" && block "npx/pnpx/pnx/bunx/uvx"
-    m "${S}(pip|pip3|pipx|uv[[:space:]]+pip)[[:space:]]+install" && block "pip install"
-    m "${S}uv[[:space:]]+(add|tool[[:space:]]+install)" && block "uv add / uv tool install"
-    m "${S}(cargo|go|gem)[[:space:]]+install" && block "cargo/go/gem install"
-    m "${S}(sudo[[:space:]]+)?(apt|apt-get|yum|dnf|apk)[[:space:]]+(install|add)" && block "system package install"
-    m "${S}brew[[:space:]]+install" && block "brew install"
+    # --- remote script execution ---
     m "(curl|wget)[^|]*\|[[:space:]]*(sudo[[:space:]]+)?((ba|z|da|k)?sh|python3?|node|perl|ruby)([[:space:]]|$)" && block "pipe remote script to interpreter"
     m "<\([[:space:]]*(curl|wget)|\\\$\([[:space:]]*(curl|wget)" && block "execute remote script via process/command substitution"
+
+    # --- packages (any language) ---
+    # Installing exactly what the project's lockfile pins = ask.
+    # Adding deps, one-shot remote execution, global/system installs,
+    # or a manager whose lockfile is absent = block.
+    m "${S}(npm|pnpm|yarn|bun)[[:space:]](.*[[:space:]])?(-g|--global)([[:space:]]|=|$)" && block "global package install"
+    m "${S}yarn[[:space:]]+global([[:space:]]|$)" && block "yarn global"
+    m "${S}(npx|pnpx|pnx|bunx|uvx)([[:space:]]|$)" && block "one-shot remote package execution (npx/bunx/uvx)"
+    m "${S}(pnpm|yarn)[[:space:]]+dlx([[:space:]]|$)|${S}npm[[:space:]]+exec([[:space:]]|$)|${S}pipx[[:space:]]+run([[:space:]]|$)|${S}go[[:space:]]+run[[:space:]]+[^[:space:]]+@" && block "one-shot remote package execution (dlx/npm exec/pipx run/go run pkg@ver)"
+    m "${S}(cargo|go|gem|pipx)[[:space:]]+install([[:space:]]|$)|${S}uv[[:space:]]+tool[[:space:]]+install" && block "global tool install"
+    m "${S}(sudo[[:space:]]+)?(apt|apt-get|yum|dnf|apk)[[:space:]]+(install|add)" && block "system package install"
+    m "${S}brew[[:space:]]+install" && block "brew install"
+
+    proj="${CLAUDE_PROJECT_DIR:-}"
+    cwd="$(jq -r '.cwd // ""' <<<"$input")"
+    has_lock() {
+      local d f
+      for d in "$cwd" "$proj"; do
+        [[ -n "$d" ]] || continue
+        for f in "$@"; do [[ -e "$d/$f" ]] && return 0; done
+      done
+      return 1
+    }
+    F='([[:space:]]+-[^[:space:]]+)*[[:space:]]*($|[;&|)])'   # only flags may follow
+    rest="$cmd"; lock_used=""
+    # lock_ok REGEX LOCKFILE... : if the lockfile exists, strip matching lockfile installs from $rest
+    lock_ok() {
+      local re="$1"; shift
+      has_lock "$@" || return 0
+      grep -qE -- "${S}${re}${F}" <<<"$rest" || return 0
+      rest="$(sed -E "s#${S}${re}${F}#\\1 #g" <<<"$rest")"
+      lock_used="${lock_used:+$lock_used, }$1"
+    }
+    lock_ok 'pnpm[[:space:]]+(install|i)'                pnpm-lock.yaml
+    lock_ok 'npm[[:space:]]+(ci|install|i)'              package-lock.json npm-shrinkwrap.json
+    lock_ok 'yarn([[:space:]]+install)?'                 yarn.lock
+    lock_ok 'bun[[:space:]]+(install|i)'                 bun.lock bun.lockb
+    lock_ok 'uv[[:space:]]+sync'                         uv.lock
+    lock_ok 'poetry[[:space:]]+(install|sync)'           poetry.lock
+    lock_ok 'pipenv[[:space:]]+sync'                     Pipfile.lock
+    lock_ok '(python3?[[:space:]]+-m[[:space:]]+)?pip3?[[:space:]]+install[[:space:]]+-r[[:space:]]*requirements[A-Za-z0-9_.-]*\.(txt|lock)' requirements.txt requirements.lock
+    lock_ok 'go[[:space:]]+mod[[:space:]]+download'      go.sum
+    lock_ok 'bundle([[:space:]]+install)?'               Gemfile.lock
+    lock_ok 'composer[[:space:]]+install'                composer.lock
+    lock_ok 'cargo[[:space:]]+fetch'                     Cargo.lock
+
+    PKG_RE="${S}((pnpm|npm|yarn|bun)[[:space:]]+(install|i|ci|add|up|update|upgrade)|(pip|pip3)[[:space:]]+install|uv[[:space:]]+(add|sync|pip[[:space:]]+install)|poetry[[:space:]]+(add|install|sync)|pipenv[[:space:]]+(install|sync)|cargo[[:space:]]+(add|fetch)|go[[:space:]]+(get|mod[[:space:]]+download)|bundle[[:space:]]+(install|add)|composer[[:space:]]+(install|require|update))([[:space:]]|$|[;&|)])"
+    PKG_BARE_RE="${S}(yarn|bundle)${F}"
+    if grep -qE -- "$PKG_RE" <<<"$rest" || grep -qE -- "$PKG_BARE_RE" <<<"$rest"; then
+      block "package install not pinned by a lockfile, or adds new dependencies (install manually if needed)"
+    fi
+    [[ -n "$lock_used" ]] && ask "installs dependencies pinned by lockfile ($lock_used)"
 
     # --- destructive GitHub operations ---
     m "${S}gh[[:space:]]+(repo[[:space:]]+(delete|archive|rename|edit)|release[[:space:]]+delete|secret|variable|ssh-key|gpg-key|auth[[:space:]]+(token|logout|refresh|setup-git))" && block "destructive / credential gh command"

@@ -10,8 +10,7 @@
       "Bash(git config *)",
       "Bash(gh *)",
       "Bash(curl *)",
-      "Bash(wget *)",
-      "Bash(pnpm install*)"
+      "Bash(wget *)"
     ],
     "deny": [
       "Bash(rm *)",
@@ -27,11 +26,8 @@
       "Bash(yarn add *)",
       "Bash(yarn dlx *)",
       "Bash(pnpm dlx *)",
-      "Bash(npm install *)",
-      "Bash(npm i *)",
       "Bash(npx *)",
       "Bash(pnpm add *)",
-      "Bash(pip install *)",
       "Bash(apt *)",
       "Bash(apt-get *)",
       "Bash(brew install *)",
