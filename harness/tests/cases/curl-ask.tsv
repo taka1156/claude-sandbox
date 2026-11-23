@@ -1,0 +1,3 @@
+# config.curl = "ask": plain HTTP requests ask (allowlisted hosts can still receive exfiltrated data).
+ASK	Bash	curl -s https://api.github.com/zen
+ASK	Bash	wget -q https://registry.npmjs.org/react

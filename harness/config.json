@@ -1,0 +1,10 @@
+{
+  "gh_read": "allow",
+  "curl": "ask",
+  "attribution": false,
+  "skills": ["review-claude-config"],
+  "agents": [],
+  "root": {
+    "agents": ["sync-readme"]
+  }
+}

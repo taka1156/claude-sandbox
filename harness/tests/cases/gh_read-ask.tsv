@@ -1,0 +1,7 @@
+# config.gh_read = "ask": every gh command asks.
+ASK	Bash	gh pr view 1
+ASK	Bash	gh pr list
+ASK	Bash	gh issue view 3
+ASK	Bash	gh run list
+ASK	Bash	gh repo view
+ASK	Bash	gh pr comment 1 --body hi

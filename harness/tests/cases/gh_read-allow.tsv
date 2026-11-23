@@ -1,0 +1,15 @@
+# config.gh_read = "allow": read-only gh runs without a prompt; writes still ask.
+OK	Bash	gh pr view 1
+OK	Bash	gh pr list
+OK	Bash	gh pr diff 1
+OK	Bash	gh pr checks 1
+OK	Bash	gh issue view 3
+OK	Bash	gh issue list
+OK	Bash	gh run list
+OK	Bash	gh run view 123
+OK	Bash	gh repo view
+ASK	Bash	gh pr comment 1 --body hi
+ASK	Bash	gh pr review 1 --approve
+ASK	Bash	gh release create v1.0.0
+ASK	Bash	gh workflow run ci.yml
+ASK	Bash	gh api repos/foo/bar/issues -f title=x

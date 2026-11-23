@@ -1,0 +1,20 @@
+{
+  "node": [
+    { "manager": "pnpm", "lockfiles": ["pnpm-lock.yaml"], "install": ["pnpm install", "pnpm i"], "add": ["pnpm add", "pnpm up", "pnpm update", "pnpm upgrade"] },
+    { "manager": "npm", "lockfiles": ["package-lock.json", "npm-shrinkwrap.json"], "install": ["npm ci", "npm install", "npm i"], "add": ["npm add", "npm update"] },
+    { "manager": "yarn", "lockfiles": ["yarn.lock"], "install": ["yarn install", "yarn"], "add": ["yarn add", "yarn up", "yarn upgrade"] },
+    { "manager": "bun", "lockfiles": ["bun.lock", "bun.lockb"], "install": ["bun install", "bun i"], "add": ["bun add", "bun update"] }
+  ],
+  "python": [
+    { "manager": "uv", "lockfiles": ["uv.lock"], "install": ["uv sync"], "add": ["uv add", "uv pip install"] },
+    { "manager": "poetry", "lockfiles": ["poetry.lock"], "install": ["poetry install", "poetry sync"], "add": ["poetry add"] },
+    { "manager": "pipenv", "lockfiles": ["Pipfile.lock"], "install": ["pipenv sync"], "add": ["pipenv install"] },
+    { "manager": "pip", "lockfiles": ["requirements.txt"], "install": ["pip install -r requirements.txt", "pip3 install -r requirements.txt"], "add": ["pip install", "pip3 install"] }
+  ],
+  "go": [
+    { "manager": "go", "lockfiles": ["go.sum"], "install": ["go mod download"], "add": ["go get"] }
+  ],
+  "rust": [
+    { "manager": "cargo", "lockfiles": ["Cargo.lock"], "install": ["cargo fetch"], "add": ["cargo add"] }
+  ]
+}

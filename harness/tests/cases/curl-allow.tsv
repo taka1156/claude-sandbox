@@ -1,0 +1,3 @@
+# config.curl = "allow": plain HTTP requests run without a prompt (destinations limited by the container firewall).
+OK	Bash	curl -s https://api.github.com/zen
+OK	Bash	wget -q https://registry.npmjs.org/react
