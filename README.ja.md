@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" alt="claude-sandbox logo" width="200">
+</p>
+
 # claude-sandbox
 
 [English](README.md)
