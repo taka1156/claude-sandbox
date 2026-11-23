@@ -5,6 +5,7 @@
   "skills": ["review-claude-config"],
   "agents": [],
   "root": {
+    "skills": ["develop-harness"],
     "agents": ["sync-readme"]
   }
 }

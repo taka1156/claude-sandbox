@@ -88,7 +88,7 @@ bash .claude/skills/review-claude-config/scripts/run-tests.sh --quiet
 
 | パス | 役割 |
 | --- | --- |
-| `harness/config.json` | カスタマイズの唯一の入力。`gh` の読み取り系（`allow`／`ask`）、`curl`（`allow`／`ask`）、共同作成者の表記、同梱するスキルとエージェント |
+| `harness/config.json` | カスタマイズの唯一の入力。`gh` の読み取り系（`allow`／`ask`）、`curl`（`allow`／`ask`）、共同作成者の表記、同梱するスキルとエージェント、このリポジトリ専用の追加分（`root`） |
 | `harness/lang.json` | 言語ごとのパッケージマネージャー。ロックファイル、ロックファイルどおりに導入するコマンド、依存を追加するコマンド |
 | `harness/templates/` | `settings.json`、`guard.sh`、スキル、エージェント、`CLAUDE.md`、`AGENTS.md` のテンプレート |
 | `harness/tests/cases/` | 方針のテストケース（安全ラインとカスタマイズ項目）。パッケージのケースは `lang.json` から生成 |
@@ -98,7 +98,7 @@ bash .claude/skills/review-claude-config/scripts/run-tests.sh --quiet
 
 ### このリポジトリ自身のハーネスを更新する
 
-このリポジトリは、`base` のセットに `sync-readme` エージェントを加えたものを使っています。コンテナ内では `.claude/` が読み取り専用なので、ホスト側で更新します。
+このリポジトリは、`base` のセットに、このリポジトリ専用の追加分を加えたものを使っています。追加分は、`develop-harness` スキル（生成元のプロジェクト概要・要件・変更手順）と `sync-readme` エージェントです。コンテナ内では `.claude/` が読み取り専用なので、ホスト側で更新します。
 
 ```sh
 bash harness/scripts/generate.sh

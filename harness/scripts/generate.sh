@@ -39,6 +39,7 @@ ATTRIBUTION="$(cfg '.attribution')"
 [[ "$ATTRIBUTION" == true || "$ATTRIBUTION" == false ]] || { echo "Error: config.attribution must be true|false" >&2; exit 1; }
 mapfile -t SKILLS < <(cfg '.skills // [] | join("\n")' | grep -v '^$' || true)
 mapfile -t AGENTS < <(cfg '.agents // [] | join("\n")' | grep -v '^$' || true)
+mapfile -t ROOT_SKILLS < <(cfg '.root.skills // [] | join("\n")' | grep -v '^$' || true)
 mapfile -t ROOT_AGENTS < <(cfg '.root.agents // [] | join("\n")' | grep -v '^$' || true)
 mapfile -t LANGS < <(jq -r 'keys | join("\n")' "$H/lang.json")
 
@@ -96,21 +97,21 @@ gen_cases() {
   ' "$H/lang.json"
 }
 
-# build_set VARIANT DEST AGENT...
+# build_set VARIANT DEST  (uses SET_SKILLS and SET_AGENTS)
 build_set() {
-  local variant="$1" dest="$2"; shift 2
+  local variant="$1" dest="$2"
   local s a
   mkdir -p "$dest/.claude/hooks"
   gen_settings > "$dest/.claude/settings.json"
   gen_guard "$variant" > "$dest/.claude/hooks/guard.sh"
   chmod 755 "$dest/.claude/hooks/guard.sh"
-  for s in "${SKILLS[@]}"; do
+  for s in "${SET_SKILLS[@]}"; do
     [[ -d "$TPL/skills/$s" ]] || { echo "Error: unknown skill '$s'" >&2; exit 1; }
     mkdir -p "$dest/.claude/skills"
     cp -R "$TPL/skills/$s" "$dest/.claude/skills/"
   done
   [[ -d "$dest/.claude/skills/review-claude-config" ]] && gen_cases "$variant" > "$dest/.claude/skills/review-claude-config/policy-cases.tsv"
-  for a in "$@"; do
+  for a in "${SET_AGENTS[@]}"; do
     [[ -f "$TPL/agents/$a.md" ]] || { echo "Error: unknown agent '$a'" >&2; exit 1; }
     mkdir -p "$dest/.claude/agents"
     cp "$TPL/agents/$a.md" "$dest/.claude/agents/"
@@ -125,15 +126,17 @@ fail=0
 cases_tmp="$(mktemp)"
 trap 'rm -f "$cases_tmp"' EXIT
 
+SET_SKILLS=("${SKILLS[@]}"); SET_AGENTS=("${AGENTS[@]}")
 for v in base "${LANGS[@]}"; do
   echo "=== variant: $v"
-  build_set "$v" "$OUT/$v" "${AGENTS[@]}"
+  build_set "$v" "$OUT/$v"
   gen_cases "$v" > "$cases_tmp"
   bash "$RUNNER" --root "$OUT/$v" --cases "$cases_tmp" --quiet || fail=1
 done
 
 echo "=== root (base + config.root extras)"
-build_set base "$ROOT_OUT" "${AGENTS[@]}" "${ROOT_AGENTS[@]}"
+SET_SKILLS=("${SKILLS[@]}" "${ROOT_SKILLS[@]}"); SET_AGENTS=("${AGENTS[@]}" "${ROOT_AGENTS[@]}")
+build_set base "$ROOT_OUT"
 
 if [[ $CHECK_ROOT -eq 1 ]]; then
   drift=0

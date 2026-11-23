@@ -88,7 +88,7 @@ bash .claude/skills/review-claude-config/scripts/run-tests.sh --quiet
 
 | Path | Role |
 | --- | --- |
-| `harness/config.json` | The only customization input: `gh` read-only (`allow` / `ask`), `curl` (`allow` / `ask`), co-author attribution, bundled skills and agents |
+| `harness/config.json` | The only customization input: `gh` read-only (`allow` / `ask`), `curl` (`allow` / `ask`), co-author attribution, bundled skills and agents, and repository-only extras (`root`) |
 | `harness/lang.json` | Package managers per language: lockfiles, lockfile install commands, add commands |
 | `harness/templates/` | Templates for `settings.json`, `guard.sh`, skills, agents, `CLAUDE.md`, `AGENTS.md` |
 | `harness/tests/cases/` | Policy test cases (the safety baseline and options); package cases are generated from `lang.json` |
@@ -98,7 +98,7 @@ When `harness/` changes on `master`, GitHub Actions generates and tests all sets
 
 ### Update this repository's own harness
 
-This repository uses the `base` set plus the `sync-readme` agent. Because `.claude/` is read-only inside the container, update it on the host:
+This repository uses the `base` set plus repository-only extras: the `develop-harness` skill (project overview, requirements and change procedure for the generator) and the `sync-readme` agent. Because `.claude/` is read-only inside the container, update it on the host:
 
 ```sh
 bash harness/scripts/generate.sh
